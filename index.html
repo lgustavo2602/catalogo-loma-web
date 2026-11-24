@@ -63,6 +63,14 @@ mark { background: #f3df7a; color: #17262b; border-radius: 2px; }
 .item > :not(.thumb) { grid-column: 1; }
 .thumb { grid-column: 2; grid-row: 1 / span 3; align-self: center; width: 120px; aspect-ratio: 240 / 90; background: #ffffff no-repeat; background-size: 100% auto; border-radius: 6px; border: 1px solid var(--line); }
 @media (max-width: 360px) { .thumb { width: 96px; } }
+.thumb { cursor: zoom-in; }
+.thumb:focus-visible { outline: 3px solid #9ccc45; outline-offset: 2px; }
+#zoom { position: fixed; inset: 0; z-index: 20; background: rgba(5, 15, 18, .9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; cursor: zoom-out; }
+#zoom[hidden] { display: none; }
+#zoom .zimg { width: min(94vw, 720px); aspect-ratio: 240 / 90; background: #ffffff no-repeat; background-size: 100% auto; border-radius: 10px; }
+#zoom .zcap { margin: 0; max-width: min(94vw, 720px); color: #ffffff; text-align: center; font-size: .95rem; }
+#zoom .zcap b { font: 700 1.15rem var(--display); letter-spacing: .02em; }
+#zoom .zhint { color: rgba(255,255,255,.6); font-size: .78rem; }
 .empty { text-align: center; color: var(--muted); padding: 40px 0; }
 #more { justify-self: center; border: 0; background: var(--navy); color: var(--on-navy); padding: 12px 22px; border-radius: 10px; font: 600 .95rem var(--body); cursor: pointer; }
 footer { color: var(--muted); font-size: .72rem; padding-block: 0 24px; }
@@ -93,6 +101,7 @@ footer { color: var(--muted); font-size: .72rem; padding-block: 0 24px; }
     </div>
   </div>
   <main id="list"></main>
+  <div id="zoom" hidden role="dialog" aria-modal="true" aria-label="Foto de la pieza"><div class="zimg"></div><p class="zcap"></p><span class="zhint">Tocá en cualquier lugar para cerrar</span></div>
   <footer>Catálogo Internacional 2026. Las marcas de vehículos pertenecen a sus fabricantes; los números OEM se muestran solo para identificar el modelo en el que se monta cada pieza.</footer>
 </div>
 
@@ -153,7 +162,7 @@ function render() {
       <h2>${hl(g.m, raw)}<small>${esc(g.b)}</small></h2>
       ${g.items.map(r => `
         <div class="item">
-          ${r[10] >= 0 && sp.p ? `<div class="thumb" role="img" aria-label="Foto ${esc(r[2])}" style="background-image:url(img/p-${s}.jpg);background-position:0 ${spritePos(r[10], sp.p)}"></div>` : ""}
+          ${r[10] >= 0 && sp.p ? `<div class="thumb" role="button" tabindex="0" aria-label="Ver foto grande de ${esc(r[2])}" style="background-image:url(img/p-${s}.jpg);background-position:0 ${spritePos(r[10], sp.p)}"></div>` : ""}
           <div class="row1"><span class="code">${hl(r[2], raw)}</span><span class="qty">${esc(r[8] || "")}${r[9] ? " · pág. " + r[9] : ""}</span></div>
           <div class="desc">${hl(r[L] || r[4], raw)}${r[7] ? `<span class="tag">${esc(r[7])}</span>` : ""}</div>
           ${r[3] ? `<div class="oem">OEM <b>${hl(r[3], raw)}</b><button class="copy" data-oem="${esc(r[3])}">Copiar</button></div>` : ""}
@@ -182,11 +191,26 @@ document.querySelector(".lang").addEventListener("click", e => {
 });
 $("#list").addEventListener("click", e => {
   if (e.target.id === "more") { shown += 40; render(); return; }
+  const t = e.target.closest(".thumb"); if (t) { openZoom(t); return; }
   const c = e.target.closest(".copy"); if (!c) return;
   const done = () => { c.textContent = "Copiado"; setTimeout(() => (c.textContent = "Copiar"), 1400); };
   navigator.clipboard?.writeText(c.dataset.oem).then(done, () => {
     const s = getSelection(), rg = document.createRange(); rg.selectNodeContents(c.previousElementSibling); s.removeAllRanges(); s.addRange(rg);
   });
+});
+// foto grande de la pieza: misma imagen y posicion que la miniatura
+let zoomFrom = null;
+function openZoom(t) {
+  const it = t.closest(".item"), z = $("#zoom");
+  z.querySelector(".zimg").style.cssText = t.style.cssText;
+  z.querySelector(".zcap").innerHTML = `<b>${esc(it.querySelector(".code").textContent)}</b><br>${esc(it.querySelector(".desc").firstChild.textContent)}`;
+  zoomFrom = t; z.hidden = false;
+}
+function closeZoom() { $("#zoom").hidden = true; zoomFrom?.focus(); zoomFrom = null; }
+$("#zoom").addEventListener("click", closeZoom);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !$("#zoom").hidden) { closeZoom(); return; }
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList?.contains("thumb")) { e.preventDefault(); openZoom(e.target); }
 });
 // marca desde el link (#fiat, #renault...)
 const h = location.hash.slice(1);
