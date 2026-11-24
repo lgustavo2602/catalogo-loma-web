@@ -63,7 +63,8 @@ mark { background: #f3df7a; color: #17262b; border-radius: 2px; }
 .item > :not(.thumb) { grid-column: 1; }
 .thumb { grid-column: 2; grid-row: 1 / span 3; align-self: center; width: 120px; aspect-ratio: 240 / 90; background: #ffffff no-repeat; background-size: 100% auto; border-radius: 6px; border: 1px solid var(--line); }
 @media (max-width: 360px) { .thumb { width: 96px; } }
-.thumb { cursor: zoom-in; }
+.thumb { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: rgba(156, 204, 69, .35); }
+@media (hover: hover) { .thumb { cursor: zoom-in; } }
 .thumb:focus-visible { outline: 3px solid #9ccc45; outline-offset: 2px; }
 #zoom { position: fixed; inset: 0; z-index: 20; background: rgba(5, 15, 18, .9); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; cursor: zoom-out; }
 #zoom[hidden] { display: none; }
@@ -191,7 +192,6 @@ document.querySelector(".lang").addEventListener("click", e => {
 });
 $("#list").addEventListener("click", e => {
   if (e.target.id === "more") { shown += 40; render(); return; }
-  const t = e.target.closest(".thumb"); if (t) { openZoom(t); return; }
   const c = e.target.closest(".copy"); if (!c) return;
   const done = () => { c.textContent = "Copiado"; setTimeout(() => (c.textContent = "Copiar"), 1400); };
   navigator.clipboard?.writeText(c.dataset.oem).then(done, () => {
@@ -208,6 +208,10 @@ function openZoom(t) {
 }
 function closeZoom() { $("#zoom").hidden = true; zoomFrom?.focus(); zoomFrom = null; }
 $("#zoom").addEventListener("click", closeZoom);
+// en iPhone el toque no siempre llega a la lista: escuchar en cada foto
+new MutationObserver(() => {
+  document.querySelectorAll(".thumb:not([data-z])").forEach(t => { t.dataset.z = "1"; t.addEventListener("click", () => openZoom(t)); });
+}).observe($("#list"), { childList: true });
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !$("#zoom").hidden) { closeZoom(); return; }
   if ((e.key === "Enter" || e.key === " ") && e.target.classList?.contains("thumb")) { e.preventDefault(); openZoom(e.target); }
